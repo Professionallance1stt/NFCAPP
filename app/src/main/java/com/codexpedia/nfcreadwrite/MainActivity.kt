@@ -29,7 +29,7 @@ class MainActivity : Activity() {
     var pendingIntent: PendingIntent? = null
     var writeMode = false
     var myTag: Tag? = null
-
+//
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
