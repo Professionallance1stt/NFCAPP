@@ -1,26 +1,184 @@
 package com.codexpedia.nfcreadwrite
 
 import android.app.Activity
-import android.app.PendingIntent
 import android.content.Intent
-import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.nfc.*
-import android.nfc.tech.Ndef
+import android.os.Build
 import android.os.Bundle
-import android.os.Parcelable
-import android.util.Log
-import android.widget.Button
-import android.widget.TextView
+import android.os.Environment
+import android.provider.MediaStore
+import android.text.TextUtils
+import android.view.View
 import android.widget.Toast
-import com.codexpedia.nfcreadwrite.databinding.ActivityMainBinding
-import java.io.IOException
-import java.io.UnsupportedEncodingException
-import java.nio.charset.Charset
-import kotlin.experimental.and
+import java.io.File
+
 
 class MainActivity : Activity() {
+    private lateinit var nfcAdapter: NfcAdapter
+    private var androidBeamAvailable = false
+    private var parentPath: File? = null
+    private val fileUris = mutableListOf<Uri>()
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        val pm = this.packageManager
+        // Check whether NFC is available on device
+        if (!pm.hasSystemFeature(PackageManager.FEATURE_NFC)) {
+            // NFC is not available on the device.
+            Toast.makeText(
+                this, "The device does not has NFC hardware.",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN) {
+            // Android Beam feature is not supported.
+            Toast.makeText(
+                this, "Android Beam is not supported.",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            // NFC and Android Beam file transfer is supported.
+            Toast.makeText(
+                this, "Android Beam is supported on your device.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
 
-    lateinit var writeTagFilters: Array<IntentFilter>
+    fun sendFile(view: View?) {
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this)
+
+        val fileName = null
+        // Retrieve the path to the user's public pictures directory
+        val fileDirectory = Environment
+            .getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES
+            )
+
+        // Create a new file using the specified directory and name
+        val fileToTransfer = File(fileDirectory, fileName)
+        fileToTransfer.setReadable(true, false)
+
+    }
+
+    fun handleFileUri(beamUri: Uri): File? =
+        // Get the path part of the URI
+        beamUri.path.let { fileName ->
+            // Create a File object for this filename
+            File(fileName)
+                // Get the file's parent directory
+                .parentFile
+        }
+
+    private fun handleContentUri(beamUri: Uri): File? =
+        // Test the authority of the URI
+        if (beamUri.authority == MediaStore.AUTHORITY) {
+
+        } else {
+            val projection = arrayOf(MediaStore.MediaColumns.DATA)
+            val pathCursor = contentResolver.query(beamUri, projection, null, null, null)
+            if (pathCursor?.moveToFirst() == true) {
+                pathCursor.getColumnIndex(MediaStore.MediaColumns.DATA).let { filenameIndex ->
+                    pathCursor.getString(filenameIndex).let { fileName ->
+                        File(fileName)
+                    }.parentFile
+                }
+            } else {
+                null
+            }
+        }
+
+    private fun handleViewIntent() {
+
+        if (TextUtils.equals(intent.action, Intent.ACTION_VIEW)) {
+            intent.data?.also { beamUri ->
+                parentPath = when (beamUri.scheme) {
+                    "file" -> handleFileUri(beamUri)
+                    "content" -> handleContentUri(beamUri)
+                    else -> null
+                }
+            }
+        }
+
+
+    }
+}
+   /*
+    private lateinit var nfcAdapter: NfcAdapter
+    // Flag to indicate that Android Beam is available
+    private var androidBeamAvailable = false
+    private var parentPath: File? = null
+    private val fileUris = mutableListOf<Uri>()
+    private inner class FileUriCallback : NfcAdapter.CreateBeamUrisCallback {
+        override fun createBeamUris(event: NfcEvent): Array<Uri> {
+            return fileUris.toTypedArray()
+        }
+    }
+
+        public override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        androidBeamAvailable = if (!packageManager.hasSystemFeature(PackageManager.FEATURE_NFC)) {
+            false
+        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            androidBeamAvailable = false
+            false
+        } else {
+            nfcAdapter = NfcAdapter.getDefaultAdapter(this)
+            true
+        }
+            nfcAdapter = NfcAdapter.getDefaultAdapter(this).apply {
+
+                var fileUriCallback = FileUriCallback()
+                nfcAdapter.setBeamPushUrisCallback(fileUriCallback, this@MainActivity)
+            }
+
+
+
+    }
+    fun handleFileUri(beamUri: Uri): File? =
+        // Get the path part of the URI
+        beamUri.path.let { fileName ->
+            // Create a File object for this filename
+            File(fileName)
+                // Get the file's parent directory
+                .parentFile
+        }
+    private fun handleContentUri(beamUri: Uri): File? =
+        // Test the authority of the URI
+        if (beamUri.authority == MediaStore.AUTHORITY) {
+
+        } else {
+            val projection = arrayOf(MediaStore.MediaColumns.DATA)
+            val pathCursor = contentResolver.query(beamUri, projection, null, null, null)
+            if (pathCursor?.moveToFirst() == true) {
+                pathCursor.getColumnIndex(MediaStore.MediaColumns.DATA).let { filenameIndex ->
+                    pathCursor.getString(filenameIndex).let { fileName ->
+                        File(fileName)
+                    }.parentFile
+                }
+            } else {
+                null
+            }
+        }
+    private fun handleViewIntent() {
+
+        if (TextUtils.equals(intent.action, Intent.ACTION_VIEW)) {
+            intent.data?.also { beamUri ->
+                parentPath = when (beamUri.scheme) {
+                    "file" -> handleFileUri(beamUri)
+                    "content" -> handleContentUri(beamUri)
+                    else -> null
+                }
+            }
+        }
+    }
+
+
+}
+*/
+/*
+  lateinit var writeTagFilters: Array<IntentFilter>
     private lateinit var tvNFCContent: TextView
     private lateinit var message: TextView
     private lateinit var btnWrite: Button
@@ -76,9 +234,7 @@ class MainActivity : Activity() {
         writeTagFilters = arrayOf(tagDetected)
     }
 
-    /******************************************************************************
-     * Read From NFC Tag
-     ****************************************************************************/
+ //Read NFC tag
     private fun readFromIntent(intent: Intent) {
         val action = intent.action
         if (NfcAdapter.ACTION_TAG_DISCOVERED == action || NfcAdapter.ACTION_TECH_DISCOVERED == action || NfcAdapter.ACTION_NDEF_DISCOVERED == action) {
@@ -114,9 +270,7 @@ class MainActivity : Activity() {
         tvNFCContent.text = "Message read from NFC Tag:\n $text"
     }
 
-    /******************************************************************************
-     * Write to NFC Tag
-     ****************************************************************************/
+ //Write the NFC Tag
     @Throws(IOException::class, FormatException::class)
     private fun write(text: String, tag: Tag?) {
         val records = arrayOf(createRecord(text))
@@ -148,9 +302,7 @@ class MainActivity : Activity() {
         return NdefRecord(NdefRecord.TNF_WELL_KNOWN, NdefRecord.RTD_TEXT, ByteArray(0), payload)
     }
 
-    /**
-     * For reading the NFC when the app is already launched
-     */
+//Reading the NFC Tag while the Apps is Launched
     override fun onNewIntent(intent: Intent) {
         setIntent(intent)
         readFromIntent(intent)
@@ -169,17 +321,17 @@ class MainActivity : Activity() {
         WriteModeOn()
     }
 
-    /******************************************************************************
-     * Enable Write and foreground dispatch to prevent intent-filter to launch the app again
-     ****************************************************************************/
+
+      //Enable Write and foreground dispatch to prevent intent-filter to launch the app again
+
     private fun WriteModeOn() {
         writeMode = true
         nfcAdapter!!.enableForegroundDispatch(this, pendingIntent, writeTagFilters, null)
     }
 
-    /******************************************************************************
-     * Disable Write and foreground dispatch to allow intent-filter to launch the app
-     ****************************************************************************/
+
+      //Disable Write and foreground dispatch to allow intent-filter to launch the app
+
     private fun WriteModeOff() {
         writeMode = false
         nfcAdapter!!.disableForegroundDispatch(this)
@@ -190,4 +342,4 @@ class MainActivity : Activity() {
         const val WRITE_SUCCESS = "Text was sent to tag!"
         const val WRITE_ERROR = "Error during the write"
     }
-}
+ */
